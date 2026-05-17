@@ -1,0 +1,25 @@
+{
+  "name": "KeepPunch_Backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node app.js",
+    "start": "node app.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.12.4",
+  "dependencies": {
+    "@koa/cors": "^5.0.0",
+    "@koa/router": "^15.4.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "koa": "^3.2.0",
+    "koa-bodyparser": "^4.4.1",
+    "koa-json": "^2.0.2",
+    "mysql2": "^3.22.3"
+  }
+}
