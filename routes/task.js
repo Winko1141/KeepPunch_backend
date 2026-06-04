@@ -1,0 +1,286 @@
+const Router = require('@koa/router');
+const router = new Router({ prefix: '/task' });
+const pool = require('../db/index');
+
+router.post('/create', async (ctx) => {
+    const {
+        task_name,
+        icon,
+        repeat_type,
+        week_rule,
+        target_count
+    } = ctx.request.body;
+
+    if (!task_name || !repeat_type) {
+        ctx.body = {
+            code: 400,
+            msg: 'task_name 和 repeat_type 不能为空'
+        };
+        return;
+    }
+
+    const sql = `
+        INSERT INTO task
+        (task_name, icon, repeat_type, week_rule, target_count, status)
+        VALUES (?, ?, ?, ?, ?, ?)
+    `;
+
+    try {
+        const result = await pool.query(sql, [
+            task_name,
+            icon || 'book',
+            repeat_type,
+            week_rule || '',
+            target_count || 0,
+            1
+        ]);
+
+        ctx.body = {
+            code: 200,
+            msg: '创建成功',
+            data: { id: result[0].insertId }
+        };
+
+    } catch (err) {
+        console.error('创建任务失败:', err);
+        ctx.body = {
+            code: 500,
+            msg: '数据库错误',
+            error: err.message
+        };
+    }
+});
+
+router.get('/list', async (ctx) => {
+    const { date } = ctx.query;
+
+    if (!date) {
+        ctx.body = {
+            code: 400,
+            msg: 'date 参数不能为空'
+        };
+        return;
+    }
+
+    try {
+        const targetDate = new Date(date);
+        if (isNaN(targetDate.getTime())) {
+            ctx.body = {
+                code: 400,
+                msg: 'date 格式错误，应为 yyyy-MM-dd'
+            };
+            return;
+        }
+
+        const dayOfWeek = targetDate.getDay();
+        const normalizedDayOfWeek = dayOfWeek === 0 ? 7 : dayOfWeek;
+
+        const year = targetDate.getFullYear();
+        const month = targetDate.getMonth() + 1;
+        const firstDayOfYear = new Date(year, 0, 1);
+        const pastDaysOfYear = (targetDate - firstDayOfYear) / 86400000;
+        const weekOfYear = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+
+        const tasksSql = `
+            SELECT t.*, 
+                   CASE WHEN r.id IS NOT NULL THEN 1 ELSE 0 END as is_finished
+            FROM task t
+            LEFT JOIN record r ON t.id = r.task_id AND r.record_date = ?
+            WHERE t.status = 1
+        `;
+
+        const [tasks] = await pool.query(tasksSql, [date]);
+
+        const filteredTasks = tasks.filter(task => {
+            if (task.repeat_type === 1) {
+                if (!task.week_rule) return true;
+                const weekRules = task.week_rule.split(',').map(Number);
+                return weekRules.includes(normalizedDayOfWeek);
+            }
+            return true;
+        });
+
+        const result = [];
+        for (const task of filteredTasks) {
+            if (task.repeat_type === 2 && task.target_count > 0) {
+                const weekCountSql = `
+                    SELECT COUNT(*) as count 
+                    FROM record 
+                    WHERE task_id = ? 
+                      AND YEAR(record_date) = ? 
+                      AND WEEK(record_date, 1) = ?
+                `;
+                const [weekCountResult] = await pool.query(weekCountSql, [task.id, year, weekOfYear - 1]);
+                const weekCount = weekCountResult[0].count;
+                if (weekCount >= task.target_count) {
+                    continue;
+                }
+            }
+
+            if (task.repeat_type === 3 && task.target_count > 0) {
+                const monthCountSql = `
+                    SELECT COUNT(*) as count 
+                    FROM record 
+                    WHERE task_id = ? 
+                      AND YEAR(record_date) = ? 
+                      AND MONTH(record_date) = ?
+                `;
+                const [monthCountResult] = await pool.query(monthCountSql, [task.id, year, month]);
+                const monthCount = monthCountResult[0].count;
+                if (monthCount >= task.target_count) {
+                    continue;
+                }
+            }
+
+            result.push({
+                id: task.id,
+                task_name: task.task_name,
+                icon: task.icon,
+                repeat_type: task.repeat_type,
+                week_rule: task.week_rule,
+                target_count: task.target_count,
+                status: task.status,
+                is_finished: task.is_finished === 1,
+                create_time: task.create_time ? task.create_time.toISOString().slice(0, 19).replace('T', ' ') : null
+            });
+        }
+
+        ctx.body = {
+            code: 200,
+            msg: 'success',
+            data: result
+        };
+
+    } catch (err) {
+        console.error('查询任务列表失败:', err);
+        ctx.body = {
+            code: 500,
+            msg: '数据库错误',
+            error: err.message
+        };
+    }
+});
+
+router.get('/:id', async (ctx) => {
+    const taskId = ctx.params.id;
+
+    try {
+        const sql = `SELECT * FROM task WHERE id = ?`;
+        const [tasks] = await pool.query(sql, [taskId]);
+
+        if (tasks.length === 0) {
+            ctx.body = {
+                code: 404,
+                msg: '任务不存在'
+            };
+            return;
+        }
+
+        const task = tasks[0];
+        ctx.body = {
+            code: 200,
+            msg: 'success',
+            data: {
+                id: task.id,
+                task_name: task.task_name,
+                icon: task.icon,
+                repeat_type: task.repeat_type,
+                week_rule: task.week_rule,
+                target_count: task.target_count,
+                status: task.status,
+                create_time: task.create_time ? task.create_time.toISOString().slice(0, 19).replace('T', ' ') : null
+            }
+        };
+
+    } catch (err) {
+        console.error('查询任务详情失败:', err);
+        ctx.body = {
+            code: 500,
+            msg: '数据库错误',
+            error: err.message
+        };
+    }
+});
+
+router.put('/:id', async (ctx) => {
+    const taskId = ctx.params.id;
+    const { task_name, icon, repeat_type, week_rule, target_count } = ctx.request.body;
+
+    try {
+        const checkSql = `SELECT * FROM task WHERE id = ?`;
+        const [tasks] = await pool.query(checkSql, [taskId]);
+
+        if (tasks.length === 0) {
+            ctx.body = {
+                code: 404,
+                msg: '任务不存在'
+            };
+            return;
+        }
+
+        const currentTask = tasks[0];
+
+        const updateSql = `
+            UPDATE task 
+            SET task_name = ?, icon = ?, repeat_type = ?, week_rule = ?, target_count = ?
+            WHERE id = ?
+        `;
+
+        await pool.query(updateSql, [
+            task_name || currentTask.task_name,
+            icon || currentTask.icon,
+            repeat_type || currentTask.repeat_type,
+            week_rule !== undefined ? week_rule : currentTask.week_rule,
+            target_count !== undefined ? target_count : currentTask.target_count,
+            taskId
+        ]);
+
+        ctx.body = {
+            code: 200,
+            msg: '更新成功'
+        };
+
+    } catch (err) {
+        console.error('更新任务失败:', err);
+        ctx.body = {
+            code: 500,
+            msg: '数据库错误',
+            error: err.message
+        };
+    }
+});
+
+router.delete('/:id', async (ctx) => {
+    const taskId = ctx.params.id;
+
+    try {
+        const checkSql = `SELECT * FROM task WHERE id = ?`;
+        const [tasks] = await pool.query(checkSql, [taskId]);
+
+        if (tasks.length === 0) {
+            ctx.body = {
+                code: 404,
+                msg: '任务不存在'
+            };
+            return;
+        }
+
+        const updateSql = `UPDATE task SET status = 2 WHERE id = ?`;
+        await pool.query(updateSql, [taskId]);
+
+        ctx.body = {
+            code: 200,
+            msg: '任务已终止'
+        };
+
+    } catch (err) {
+        console.error('终止任务失败:', err);
+        ctx.body = {
+            code: 500,
+            msg: '数据库错误',
+            error: err.message
+        };
+    }
+});
+
+module.exports = router;
