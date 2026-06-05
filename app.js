@@ -8,6 +8,7 @@ const router = new Router();
 
 const taskRouter = require('./routes/task');
 const recordRouter = require('./routes/record');
+const statsRouter = require('./routes/stats');
 
 app.use(cors());
 app.use(json());
@@ -27,6 +28,9 @@ app.use(taskRouter.allowedMethods());
 
 app.use(recordRouter.routes());
 app.use(recordRouter.allowedMethods());
+
+app.use(statsRouter.routes());
+app.use(statsRouter.allowedMethods());
 
 app.listen(3000, () => {
     console.log('server running on port 3000');
