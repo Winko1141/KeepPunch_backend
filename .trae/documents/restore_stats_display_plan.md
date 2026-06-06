@@ -1,0 +1,167 @@
+# 恢复统计页面原始数据展示方式计划
+
+## 一、需求背景
+
+用户对当前添加的可视化统计图表不满意，希望恢复到原始的数据展示方式。
+
+根据 `stats_chart_visualization_plan.md` 1.2 节：
+
+| 页面 | 原始数据展示方式 |
+|------|-----------------|
+| 周统计 | RecyclerView 显示表格 |
+| 月统计 | RecyclerView 显示卡片列表 |
+| 年统计 | RecyclerView 显示卡片列表 |
+
+## 二、当前状态
+
+当前已添加的图表组件：
+
+### 2.1 周统计页面
+- [fragment_week_stats.xml](file:///d:/xm/KeepPunch_frontend/app/src/main/res/layout/fragment_week_stats.xml#L114-L127) - 已添加 LineChart 卡片
+- [WeekStatsFragment.kt](file:///d:/xm/KeepPunch_frontend/app/src/main/java/com/example/keeppunch/ui/stats/WeekStatsFragment.kt) - 包含图表初始化和数据绑定逻辑
+
+### 2.2 月统计页面
+- [fragment_month_stats.xml](file:///d:/xm/KeepPunch_frontend/app/src/main/res/layout/fragment_month_stats.xml#L44-L57) - 已添加 HorizontalBarChart 卡片
+- [MonthStatsFragment.kt](file:///d:/xm/KeepPunch_frontend/app/src/main/java/com/example/keeppunch/ui/stats/MonthStatsFragment.kt) - 包含图表初始化和数据绑定逻辑
+
+### 2.3 年统计页面
+- [fragment_year_stats.xml](file:///d:/xm/KeepPunch_frontend/app/src/main/res/layout/fragment_year_stats.xml#L39-L71) - 已添加 PieChart 和 HorizontalBarChart 卡片
+- [YearStatsFragment.kt](file:///d:/xm/KeepPunch_frontend/app/src/main/java/com/example/keeppunch/ui/stats/YearStatsFragment.kt) - 包含图表初始化和数据绑定逻辑
+
+### 2.4 工具类
+- [ChartHelper.kt](file:///d:/xm/KeepPunch_frontend/app/src/main/java/com/example/keeppunch/util/ChartHelper.kt) - 图表配置工具类（新增）
+
+## 三、恢复方案
+
+### 方案概述
+
+采用**移除图表 + 保留原有列表功能**的策略：
+
+1. 从布局文件中删除图表组件
+2. 从 Fragment 中删除图表相关的 imports 和代码逻辑
+3. 恢复布局权重（如需要）
+4. 删除不再使用的 ChartHelper 工具类
+
+---
+
+## 四、涉及文件清单
+
+### 4.1 修改文件
+
+| 文件路径 | 修改内容 |
+|----------|----------|
+| [fragment_week_stats.xml](file:///d:/xm/KeepPunch_frontend/app/src/main/res/layout/fragment_week_stats.xml) | 删除 LineChart 组件 |
+| [fragment_month_stats.xml](file:///d:/xm/KeepPunch_frontend/app/src/main/res/layout/fragment_month_stats.xml) | 删除 HorizontalBarChart 组件 |
+| [fragment_year_stats.xml](file:///d:/xm/KeepPunch_frontend/app/src/main/res/layout/fragment_year_stats.xml) | 删除 PieChart + HorizontalBarChart 组件 |
+| [WeekStatsFragment.kt](file:///d:/xm/KeepPunch_frontend/app/src/main/java/com/example/keeppunch/ui/stats/WeekStatsFragment.kt) | 删除图表相关 imports 和逻辑 |
+| [MonthStatsFragment.kt](file:///d:/xm/KeepPunch_frontend/app/src/main/java/com/example/keeppunch/ui/stats/MonthStatsFragment.kt) | 删除图表相关 imports 和逻辑 |
+| [YearStatsFragment.kt](file:///d:/xm/KeepPunch_frontend/app/src/main/java/com/example/keeppunch/ui/stats/YearStatsFragment.kt) | 删除图表相关 imports 和逻辑 |
+
+### 4.2 删除文件
+
+| 文件路径 | 说明 |
+|----------|------|
+| [ChartHelper.kt](file:///d:/xm/KeepPunch_frontend/app/src/main/java/com/example/keeppunch/util/ChartHelper.kt) | 图表配置工具类（不再使用） |
+
+---
+
+## 五、实施步骤
+
+### 步骤 1: 恢复周统计页面
+
+**修改 [fragment_week_stats.xml](file:///d:/xm/KeepPunch_frontend/app/src/main/res/layout/fragment_week_stats.xml):**
+- 删除第 114-127 行的 LineChart CardView 组件
+
+**修改 [WeekStatsFragment.kt](file:///d:/xm/KeepPunch_frontend/app/src/main/java/com/example/keeppunch/ui/stats/WeekStatsFragment.kt):**
+- 删除以下 imports：
+  - `import com.example.keeppunch.util.ChartHelper`
+  - `import com.github.mikephil.charting.charts.LineChart`
+  - `import com.github.mikephil.charting.data.Entry`
+  - `import com.github.mikephil.charting.data.LineData`
+  - `import com.github.mikephil.charting.data.LineDataSet`
+- 删除 `onViewCreated` 中 LineChart 相关代码
+- 修改 `loadWeekData` 方法签名，移除 `lineChart` 参数
+- 删除整个 `updateLineChart` 方法
+
+### 步骤 2: 恢复月统计页面
+
+**修改 [fragment_month_stats.xml](file:///d:/xm/KeepPunch_frontend/app/src/main/res/layout/fragment_month_stats.xml):**
+- 删除第 44-57 行的 HorizontalBarChart CardView 组件
+- 调整 FrameLayout 的 `android:layout_marginTop`
+
+**修改 [MonthStatsFragment.kt](file:///d:/xm/KeepPunch_frontend/app/src/main/java/com/example/keeppunch/ui/stats/MonthStatsFragment.kt):**
+- 删除以下 imports：
+  - `import com.example.keeppunch.util.ChartHelper`
+  - `import com.github.mikephil.charting.charts.HorizontalBarChart`
+  - `import com.github.mikephil.charting.data.BarData`
+  - `import com.github.mikephil.charting.data.BarDataSet`
+  - `import com.github.mikephil.charting.data.BarEntry`
+  - `import com.github.mikephil.charting.formatter.IndexAxisValueFormatter`
+- 删除 `onViewCreated` 中 barChart 相关代码
+- 修改 `loadDataForMonth` 方法签名，移除 `barChart` 参数
+- 删除整个 `updateBarChart` 方法
+
+### 步骤 3: 恢复年统计页面
+
+**修改 [fragment_year_stats.xml](file:///d:/xm/KeepPunch_frontend/app/src/main/res/layout/fragment_year_stats.xml):**
+- 删除第 39-71 行的 PieChart 和 HorizontalBarChart 两个 CardView 组件
+
+**修改 [YearStatsFragment.kt](file:///d:/xm/KeepPunch_frontend/app/src/main/java/com/example/keeppunch/ui/stats/YearStatsFragment.kt):**
+- 删除以下 imports：
+  - `import com.example.keeppunch.util.ChartHelper`
+  - `import com.github.mikephil.charting.charts.HorizontalBarChart`
+  - `import com.github.mikephil.charting.charts.PieChart`
+  - `import com.github.mikephil.charting.data.BarData`
+  - `import com.github.mikephil.charting.data.BarDataSet`
+  - `import com.github.mikephil.charting.data.BarEntry`
+  - `import com.github.mikephil.charting.data.PieData`
+  - `import com.github.mikephil.charting.data.PieDataSet`
+  - `import com.github.mikephil.charting.data.PieEntry`
+  - `import com.github.mikephil.charting.formatter.IndexAxisValueFormatter`
+- 删除 `onCreateView` 中图表相关代码
+- 修改 `loadYearData` 方法签名，移除 `pieChart` 和 `barChart` 参数
+- 删除整个 `updatePieChart` 和 `updateHorizontalBarChart` 方法
+
+### 步骤 4: 删除工具类
+
+- 删除 [ChartHelper.kt](file:///d:/xm/KeepPunch_frontend/app/src/main/java/com/example/keeppunch/util/ChartHelper.kt)
+
+### 步骤 5: 测试验证
+
+- 编译项目确保无错误
+- 验证各页面列表正常显示
+- 验证日期切换功能正常
+- 验证空数据、错误状态处理正常
+
+---
+
+## 六、保留的功能
+
+恢复后各页面将保留以下功能：
+
+### 周统计
+- 日期切换栏（上一周/下一周）
+- 统计卡片（完美打卡次数、打卡率）
+- RecyclerView 表格形式的任务打卡详情
+
+### 月统计
+- 日期切换栏（上一月/下一月）
+- RecyclerView 卡片列表形式的任务月度打卡详情
+
+### 年统计
+- 年份切换栏（上一年/下一年）
+- RecyclerView 卡片列表形式的任务年度打卡详情
+- 点击卡片跳转任务详情
+
+所有 Loading/Empty/Error 状态处理保持不变。
+
+---
+
+## 七、验收标准
+
+1. 周统计页面仅显示：日期切换栏 + 统计卡片 + 表格列表
+2. 月统计页面仅显示：日期切换栏 + 卡片列表
+3. 年统计页面仅显示：年份切换栏 + 卡片列表
+4. 各页面日期切换功能正常
+5. 空数据和错误状态处理正常
+6. 代码无编译错误
