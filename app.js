@@ -10,10 +10,15 @@ const taskRouter = require('./routes/task');
 const recordRouter = require('./routes/record');
 const statsRouter = require('./routes/stats');
 const categoryRouter = require('./routes/category');
+const iconRouter = require('./routes/icon');
 
 app.use(cors());
 app.use(json());
-app.use(bodyParser());
+app.use(bodyParser({
+    jsonLimit: '10mb',
+    formLimit: '10mb',
+    textLimit: '10mb'
+}));
 
 router.get('/test', ctx => {
     ctx.body = {
@@ -35,6 +40,9 @@ app.use(statsRouter.allowedMethods());
 
 app.use(categoryRouter.routes());
 app.use(categoryRouter.allowedMethods());
+
+app.use(iconRouter.routes());
+app.use(iconRouter.allowedMethods());
 
 app.listen(3000, () => {
     console.log('server running on port 3000');
