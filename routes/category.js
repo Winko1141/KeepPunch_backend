@@ -97,9 +97,9 @@ router.put('/:id', async (ctx) => {
         `;
 
         await pool.query(updateSql, [
-            name || currentCategory.name,
+            name !== undefined ? name : currentCategory.name,
             icon !== undefined ? icon : currentCategory.icon,
-            color || currentCategory.color,
+            color !== undefined ? color : currentCategory.color,
             sort_order !== undefined ? sort_order : currentCategory.sort_order,
             categoryId
         ]);
