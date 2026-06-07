@@ -13,6 +13,27 @@ router.post('/checkin', async (ctx) => {
         return;
     }
 
+    const targetDate = new Date(record_date);
+    if (isNaN(targetDate.getTime())) {
+        ctx.body = {
+            code: 400,
+            msg: 'record_date 格式错误，应为 yyyy-MM-dd'
+        };
+        return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    targetDate.setHours(0, 0, 0, 0);
+
+    if (targetDate > today) {
+        ctx.body = {
+            code: 400,
+            msg: '不能打卡未来日期'
+        };
+        return;
+    }
+
     const connection = await pool.getConnection();
 
     try {
