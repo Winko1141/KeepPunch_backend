@@ -185,6 +185,66 @@ router.get('/list', async (ctx) => {
     }
 });
 
+router.get('/all', async (ctx) => {
+    const { category_id } = ctx.query;
+
+    try {
+        let tasksSql = `
+            SELECT t.*, 
+                   c.id as category_id, c.name as category_name, c.icon as category_icon, c.color as category_color
+            FROM task t
+            LEFT JOIN category c ON t.category_id = c.id
+            WHERE 1=1
+        `;
+        const sqlParams = [];
+
+        if (category_id) {
+            if (category_id === '0') {
+                tasksSql += ' AND t.category_id IS NULL';
+            } else {
+                tasksSql += ' AND t.category_id = ?';
+                sqlParams.push(category_id);
+            }
+        }
+
+        tasksSql += ' ORDER BY t.status ASC, t.create_time DESC';
+
+        const [tasks] = await pool.query(tasksSql, sqlParams);
+
+        const result = tasks.map(task => ({
+            id: task.id,
+            task_name: task.task_name,
+            icon: task.icon,
+            repeat_type: task.repeat_type,
+            week_rule: task.week_rule,
+            target_count: task.target_count,
+            status: task.status,
+            is_finished: false,
+            create_time: task.create_time ? task.create_time.toISOString().slice(0, 19).replace('T', ' ') : null,
+            reminder_time: task.reminder_time,
+            reminder_enabled: task.reminder_enabled === 1,
+            category_id: task.category_id,
+            category_name: task.category_name,
+            category_icon: task.category_icon,
+            category_color: task.category_color
+        }));
+
+        ctx.body = {
+            code: 200,
+            msg: 'success',
+            data: result
+        };
+
+    } catch (err) {
+        console.error('查询所有任务失败:', err);
+        ctx.body = {
+            code: 500,
+            msg: '数据库错误',
+            error: err.message
+        };
+    }
+});
+
 router.get('/:id', async (ctx) => {
     const taskId = ctx.params.id;
 
@@ -318,6 +378,48 @@ router.delete('/:id', async (ctx) => {
 
     } catch (err) {
         console.error('终止任务失败:', err);
+        ctx.body = {
+            code: 500,
+            msg: '数据库错误',
+            error: err.message
+        };
+    }
+});
+
+router.post('/:id/restore', async (ctx) => {
+    const taskId = ctx.params.id;
+
+    try {
+        const checkSql = `SELECT * FROM task WHERE id = ?`;
+        const [tasks] = await pool.query(checkSql, [taskId]);
+
+        if (tasks.length === 0) {
+            ctx.body = {
+                code: 404,
+                msg: '任务不存在'
+            };
+            return;
+        }
+
+        const task = tasks[0];
+        if (task.status !== 2) {
+            ctx.body = {
+                code: 400,
+                msg: '任务未处于终止状态'
+            };
+            return;
+        }
+
+        const updateSql = `UPDATE task SET status = 1 WHERE id = ?`;
+        await pool.query(updateSql, [taskId]);
+
+        ctx.body = {
+            code: 200,
+            msg: '任务已恢复'
+        };
+
+    } catch (err) {
+        console.error('恢复任务失败:', err);
         ctx.body = {
             code: 500,
             msg: '数据库错误',
