@@ -34,8 +34,9 @@ router.get('/week', async (ctx) => {
         const startDateStr = formatDate(startDate);
         const endDateStr = formatDate(endDate);
 
+
         const tasksSql = `
-            SELECT t.id, t.task_name
+            SELECT t.id, t.task_name, t.repeat_type, t.week_rule, t.target_count
             FROM task t
             WHERE t.status = 1
         `;
@@ -75,6 +76,9 @@ router.get('/week', async (ctx) => {
             return {
                 task_id: task.id,
                 task_name: task.task_name,
+                repeat_type: task.repeat_type,
+                week_rule: task.week_rule || '',
+                target_count: task.target_count || 0,
                 week_days: weekDays
             };
         });
