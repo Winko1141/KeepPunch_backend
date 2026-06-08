@@ -11,7 +11,10 @@ router.post('/create', async (ctx) => {
         target_count,
         reminder_time,
         reminder_enabled,
-        category_id
+        category_id,
+        reminder_type,
+        reminder_date,
+        reminder_week_rule
     } = ctx.request.body;
 
     if (!task_name || !repeat_type) {
@@ -24,8 +27,9 @@ router.post('/create', async (ctx) => {
 
     const sql = `
         INSERT INTO task
-        (task_name, icon, repeat_type, week_rule, target_count, status, reminder_time, reminder_enabled, category_id)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (task_name, icon, repeat_type, week_rule, target_count, status, reminder_time, reminder_enabled, category_id,
+         reminder_type, reminder_date, reminder_week_rule)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     try {
@@ -38,7 +42,10 @@ router.post('/create', async (ctx) => {
             1,
             reminder_time || null,
             reminder_enabled ? 1 : 0,
-            category_id || null
+            category_id || null,
+            reminder_type || 3,
+            reminder_date || null,
+            reminder_week_rule || null
         ]);
 
         ctx.body = {
@@ -162,6 +169,9 @@ router.get('/list', async (ctx) => {
                 create_time: task.create_time ? task.create_time.toISOString().slice(0, 19).replace('T', ' ') : null,
                 reminder_time: task.reminder_time,
                 reminder_enabled: task.reminder_enabled === 1,
+                reminder_type: task.reminder_type,
+                reminder_date: task.reminder_date,
+                reminder_week_rule: task.reminder_week_rule,
                 category_id: task.category_id,
                 category_name: task.category_name,
                 category_icon: task.category_icon,
@@ -223,6 +233,9 @@ router.get('/all', async (ctx) => {
             create_time: task.create_time ? task.create_time.toISOString().slice(0, 19).replace('T', ' ') : null,
             reminder_time: task.reminder_time,
             reminder_enabled: task.reminder_enabled === 1,
+            reminder_type: task.reminder_type,
+            reminder_date: task.reminder_date,
+            reminder_week_rule: task.reminder_week_rule,
             category_id: task.category_id,
             category_name: task.category_name,
             category_icon: task.category_icon,
@@ -281,6 +294,9 @@ router.get('/:id', async (ctx) => {
                 create_time: task.create_time ? task.create_time.toISOString().slice(0, 19).replace('T', ' ') : null,
                 reminder_time: task.reminder_time,
                 reminder_enabled: task.reminder_enabled === 1,
+                reminder_type: task.reminder_type,
+                reminder_date: task.reminder_date,
+                reminder_week_rule: task.reminder_week_rule,
                 category_id: task.category_id,
                 category_name: task.category_name,
                 category_icon: task.category_icon,
@@ -300,7 +316,8 @@ router.get('/:id', async (ctx) => {
 
 router.put('/:id', async (ctx) => {
     const taskId = ctx.params.id;
-    const { task_name, icon, repeat_type, week_rule, target_count, reminder_time, reminder_enabled, category_id } = ctx.request.body;
+    const { task_name, icon, repeat_type, week_rule, target_count, reminder_time, reminder_enabled, category_id,
+            reminder_type, reminder_date, reminder_week_rule } = ctx.request.body;
 
     try {
         const checkSql = `SELECT * FROM task WHERE id = ?`;
@@ -319,12 +336,16 @@ router.put('/:id', async (ctx) => {
         const updateSql = `
             UPDATE task 
             SET task_name = ?, icon = ?, repeat_type = ?, week_rule = ?, target_count = ?,
-                reminder_time = ?, reminder_enabled = ?, category_id = ?
+                reminder_time = ?, reminder_enabled = ?, category_id = ?,
+                reminder_type = ?, reminder_date = ?, reminder_week_rule = ?
             WHERE id = ?
         `;
 
         const newReminderEnabled = reminder_enabled !== undefined ? (reminder_enabled ? 1 : 0) : currentTask.reminder_enabled;
         const newCategoryId = category_id !== undefined ? (category_id === 0 ? null : category_id) : currentTask.category_id;
+        const newReminderType = reminder_type !== undefined ? reminder_type : currentTask.reminder_type;
+        const newReminderDate = reminder_date !== undefined ? (reminder_date || null) : currentTask.reminder_date;
+        const newReminderWeekRule = reminder_week_rule !== undefined ? (reminder_week_rule || null) : currentTask.reminder_week_rule;
 
         await pool.query(updateSql, [
             task_name || currentTask.task_name,
@@ -335,6 +356,9 @@ router.put('/:id', async (ctx) => {
             reminder_time !== undefined ? reminder_time : currentTask.reminder_time,
             newReminderEnabled,
             newCategoryId,
+            newReminderType,
+            newReminderDate,
+            newReminderWeekRule,
             taskId
         ]);
 
