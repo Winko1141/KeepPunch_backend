@@ -130,7 +130,7 @@ router.get('/month', async (ctx) => {
         const endDateStr = formatDate(endDate);
 
         const tasksSql = `
-            SELECT t.id, t.task_name
+            SELECT t.id, t.task_name, t.repeat_type, t.week_rule, t.create_time
             FROM task t
             WHERE t.status = 1
         `;
@@ -163,6 +163,9 @@ router.get('/month', async (ctx) => {
             return {
                 task_id: task.id,
                 task_name: task.task_name,
+                repeat_type: task.repeat_type,
+                week_rule: task.week_rule || '',
+                create_time: task.create_time ? formatDate(task.create_time) : null,
                 month_days: monthDays
             };
         });
