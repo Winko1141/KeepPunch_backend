@@ -314,57 +314,51 @@ router.get('/rate/:taskId', async (ctx) => {
         const [totalCountResult] = await pool.query(totalCountSql, [taskId]);
         const totalCount = totalCountResult[0].count;
 
-        const allRecordsSql = `
-            SELECT record_date 
-            FROM record 
-            WHERE task_id = ?
-            ORDER BY record_date ASC
-        `;
-        const [allRecords] = await pool.query(allRecordsSql, [taskId]);
-
-        const dates = allRecords.map(r => new Date(formatDate(r.record_date)));
-
-        let currentStreak = 0;
-        let maxStreak = 0;
-        let tempStreak = 0;
-
         const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const year = today.getFullYear();
+        const month = today.getMonth();
+        const monthStart = formatDate(new Date(year, month, 1));
+        const monthEnd = formatDate(new Date(year, month + 1, 0));
 
-        if (dates.length > 0) {
-            const sortedDates = [...dates].sort((a, b) => a - b);
-            const lastDate = sortedDates[sortedDates.length - 1];
+        const monthCountSql = `
+            SELECT COUNT(*) as count 
+            FROM record 
+            WHERE task_id = ? AND record_date >= ? AND record_date <= ?
+        `;
+        const [monthCountResult] = await pool.query(monthCountSql, [taskId, monthStart, monthEnd]);
+        const monthCount = monthCountResult[0].count;
 
-            const daysDiff = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
+        const task = tasks[0];
+        let maxStreak = task.max_streak || 0;
 
-            if (daysDiff <= 1) {
-                tempStreak = 1;
-                currentStreak = 1;
-
-                for (let i = sortedDates.length - 2; i >= 0; i--) {
-                    const diff = Math.floor((sortedDates[i + 1] - sortedDates[i]) / (1000 * 60 * 60 * 24));
+        if (maxStreak === 0) {
+            const allRecordsSql = `
+                SELECT record_date 
+                FROM record 
+                WHERE task_id = ?
+                ORDER BY record_date ASC
+            `;
+            const [allRecords] = await pool.query(allRecordsSql, [taskId]);
+            
+            if (allRecords.length > 0) {
+                const dates = allRecords.map(r => new Date(formatDate(r.record_date)));
+                const sortedDates = [...dates].sort((a, b) => a - b);
+                
+                let tempStreak = 1;
+                for (let i = 1; i < sortedDates.length; i++) {
+                    const diff = Math.floor((sortedDates[i] - sortedDates[i - 1]) / (1000 * 60 * 60 * 24));
                     if (diff === 1) {
-                        currentStreak++;
-                        tempStreak = currentStreak;
+                        tempStreak++;
                     } else {
-                        maxStreak = Math.max(maxStreak, currentStreak);
-                        currentStreak = 0;
-                        break;
+                        maxStreak = Math.max(maxStreak, tempStreak);
+                        tempStreak = 1;
                     }
                 }
+                maxStreak = Math.max(maxStreak, tempStreak);
+                
+                const updateTaskSql = `UPDATE task SET max_streak = ? WHERE id = ?`;
+                await pool.query(updateTaskSql, [maxStreak, taskId]);
             }
-
-            tempStreak = 1;
-            for (let i = 1; i < sortedDates.length; i++) {
-                const diff = Math.floor((sortedDates[i] - sortedDates[i - 1]) / (1000 * 60 * 60 * 24));
-                if (diff === 1) {
-                    tempStreak++;
-                } else {
-                    maxStreak = Math.max(maxStreak, tempStreak);
-                    tempStreak = 1;
-                }
-            }
-            maxStreak = Math.max(maxStreak, tempStreak);
         }
 
         ctx.body = {
@@ -372,7 +366,7 @@ router.get('/rate/:taskId', async (ctx) => {
             msg: 'success',
             data: {
                 total_count: totalCount,
-                current_streak: currentStreak,
+                month_count: monthCount,
                 max_streak: maxStreak
             }
         };
