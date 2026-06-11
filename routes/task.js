@@ -102,8 +102,9 @@ router.get('/list', async (ctx) => {
             LEFT JOIN record r ON t.id = r.task_id AND r.record_date = ?
             LEFT JOIN category c ON t.category_id = c.id
             WHERE t.status = 1
+              AND DATE(t.create_time) <= ?
         `;
-        const sqlParams = [date];
+        const sqlParams = [date, date];
 
         if (category_id) {
             if (category_id === '0') {
